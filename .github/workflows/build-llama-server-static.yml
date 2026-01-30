@@ -1,0 +1,98 @@
+name: Build llama-server
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # =========================
+      # macOS UNIVERSAL
+      # =========================
+      - name: Build macOS universal llama-server
+        if: matrix.os == 'macos-latest'
+        run: |
+          # x86_64
+          cmake -B build-x64 \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DBUILD_SHARED_LIBS=OFF
+          cmake --build build-x64 --config Release --target llama-server
+
+          # arm64
+          cmake -B build-arm64 \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DBUILD_SHARED_LIBS=OFF
+          cmake --build build-arm64 --config Release --target llama-server
+
+          # Combine into universal binary
+          mkdir -p dist
+          lipo -create \
+            build-x64/bin/llama-server \
+            build-arm64/bin/llama-server \
+            -output dist/llama-server-macos-universal
+
+          chmod +x dist/llama-server-macos-universal
+
+      # =========================
+      # LINUX
+      # =========================
+      - name: Build Linux llama-server
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cmake -B build -DBUILD_SHARED_LIBS=OFF
+          cmake --build build --config Release --target llama-server
+
+          mkdir -p dist
+          cp build/bin/llama-server dist/llama-server-linux-x64
+          chmod +x dist/llama-server-linux-x64
+
+      # =========================
+      # WINDOWS
+      # =========================
+      - name: Build Windows llama-server
+        if: matrix.os == 'windows-latest'
+        run: |
+          cmake -B build -DBUILD_SHARED_LIBS=OFF
+          cmake --build build --config Release --target llama-server
+
+          mkdir dist
+          copy build\bin\Release\llama-server.exe dist\llama-server-windows-x64.exe
+        shell: cmd
+
+      # =========================
+      # Upload artifacts
+      # =========================
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-server-${{ matrix.os }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
