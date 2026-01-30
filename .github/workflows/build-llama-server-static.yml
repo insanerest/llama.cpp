@@ -6,11 +6,11 @@ on:
       - "v*"
 
 # ============================================================
-# macOS x86_64
+# macOS x86_64 (Intel, macOS 15)
 # ============================================================
 jobs:
   macos-x64:
-    runs-on: macos-13   # Intel runner
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
 
@@ -34,10 +34,10 @@ jobs:
           path: dist/*
 
 # ============================================================
-# macOS arm64
+# macOS arm64 (Apple Silicon, macOS 15)
 # ============================================================
   macos-arm64:
-    runs-on: macos-latest   # Apple Silicon
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
