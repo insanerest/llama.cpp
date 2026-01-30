@@ -5,61 +5,97 @@ on:
     tags:
       - "v*"
 
+# ============================================================
+# macOS x86_64
+# ============================================================
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-
-    runs-on: ${{ matrix.os }}
-
+  macos-x64:
+    runs-on: macos-13   # Intel runner
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # =========================================================
-      # macOS — Universal (arm64 + x86_64)
-      # =========================================================
-      - name: Build macOS universal llama-server
-        if: matrix.os == 'macos-latest'
+      - name: Build llama-server (macOS x64)
         run: |
-          set -e
-
-          # ---------- x86_64 (cross-compiled on arm runner) ----------
-          cmake -B build-x64 \
-            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+          cmake -B build \
             -DBUILD_SHARED_LIBS=OFF \
             -DGGML_NATIVE=OFF \
-            -DGGML_CPU_ARCH=x86-64
+            -DGGML_CPU_ARCH=x86-64 \
+            -DLLAMA_SERVER_SSL=OFF
 
-          cmake --build build-x64 --config Release --target llama-server
+          cmake --build build --config Release --target llama-server
 
-          # ---------- arm64 (native) ----------
-          cmake -B build-arm64 \
-            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+          mkdir -p dist
+          cp build/bin/llama-server dist/llama-server-macos-x64
+          chmod +x dist/llama-server-macos-x64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-x64
+          path: dist/*
+
+# ============================================================
+# macOS arm64
+# ============================================================
+  macos-arm64:
+    runs-on: macos-latest   # Apple Silicon
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build llama-server (macOS arm64)
+        run: |
+          cmake -B build \
             -DBUILD_SHARED_LIBS=OFF \
-            -DGGML_NATIVE=OFF
+            -DGGML_NATIVE=OFF \
+            -DLLAMA_SERVER_SSL=OFF
 
-          cmake --build build-arm64 --config Release --target llama-server
+          cmake --build build --config Release --target llama-server
 
-          # ---------- Universal binary ----------
+          mkdir -p dist
+          cp build/bin/llama-server dist/llama-server-macos-arm64
+          chmod +x dist/llama-server-macos-arm64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: dist/*
+
+# ============================================================
+# macOS Universal (lipo)
+# ============================================================
+  macos-universal:
+    needs: [macos-x64, macos-arm64]
+    runs-on: macos-latest
+    steps:
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create universal binary
+        run: |
           mkdir -p dist
           lipo -create \
-            build-x64/bin/llama-server \
-            build-arm64/bin/llama-server \
+            artifacts/macos-x64/llama-server-macos-x64 \
+            artifacts/macos-arm64/llama-server-macos-arm64 \
             -output dist/llama-server-macos-universal
 
           chmod +x dist/llama-server-macos-universal
 
-      # =========================================================
-      # Linux — x64
-      # =========================================================
-      - name: Build Linux llama-server
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          set -e
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal
+          path: dist/*
 
+# ============================================================
+# Linux x64
+# ============================================================
+  linux-x64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build llama-server (Linux x64)
+        run: |
           cmake -B build \
             -DBUILD_SHARED_LIBS=OFF
 
@@ -69,12 +105,20 @@ jobs:
           cp build/bin/llama-server dist/llama-server-linux-x64
           chmod +x dist/llama-server-linux-x64
 
-      # =========================================================
-      # Windows — x64 (MSVC)
-      # =========================================================
-      - name: Build Windows llama-server
-        if: matrix.os == 'windows-latest'
-        shell: cmd
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: dist/*
+
+# ============================================================
+# Windows x64
+# ============================================================
+  windows-x64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build llama-server (Windows x64)
         run: |
           cmake -B build -DBUILD_SHARED_LIBS=OFF
           cmake --build build --config Release --target llama-server
@@ -82,21 +126,19 @@ jobs:
           mkdir dist
           copy build\bin\Release\llama-server.exe dist\llama-server-windows-x64.exe
 
-      # =========================================================
-      # Upload artifacts
-      # =========================================================
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: llama-server-${{ matrix.os }}
+          name: windows-x64
           path: dist/*
-          if-no-files-found: error
 
-  # =============================================================
-  # Release job
-  # =============================================================
+# ============================================================
+# GitHub Release
+# ============================================================
   release:
-    needs: build
+    needs:
+      - macos-universal
+      - linux-x64
+      - windows-x64
     runs-on: ubuntu-latest
 
     steps:
