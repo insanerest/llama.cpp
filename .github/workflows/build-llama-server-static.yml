@@ -120,11 +120,7 @@ jobs:
 
       - name: Configure (static)
         run: |
-          cmake -S . -B build ^
-            -DBUILD_SHARED_LIBS=OFF ^
-            -DLLAMA_CURL=OFF ^
-            -DLLAMA_OPENSSL=OFF ^
-            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          cmake -S . -B build -DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DLLAMA_OPENSSL=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
 
       - name: Build llama-server (Windows x64)
         run: |
