@@ -118,11 +118,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Configure (static)
+        run: |
+          cmake -S . -B build ^
+            -DBUILD_SHARED_LIBS=OFF ^
+            -DLLAMA_CURL=OFF ^
+            -DLLAMA_OPENSSL=OFF ^
+            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+
       - name: Build llama-server (Windows x64)
         run: |
-          cmake -B build -DBUILD_SHARED_LIBS=OFF
           cmake --build build --config Release --target llama-server
 
+      - name: Package
+        run: |
           mkdir dist
           copy build\bin\Release\llama-server.exe dist\llama-server-windows-x64.exe
 
