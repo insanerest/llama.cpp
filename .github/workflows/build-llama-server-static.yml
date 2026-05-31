@@ -5,10 +5,10 @@ on:
     tags:
       - "v*"
 
+jobs:
 # ============================================================
 # macOS x86_64 (Intel, macOS 15)
 # ============================================================
-jobs:
   macos-x64:
     runs-on: macos-15-intel
     steps:
@@ -21,13 +21,10 @@ jobs:
             -DGGML_NATIVE=OFF \
             -DGGML_CPU_ARCH=x86-64 \
             -DLLAMA_SERVER_SSL=OFF
-
           cmake --build build --config Release --target llama-server
-
           mkdir -p dist
           cp build/bin/llama-server dist/llama-server-macos-x64
           chmod +x dist/llama-server-macos-x64
-
       - uses: actions/upload-artifact@v4
         with:
           name: macos-x64
@@ -47,13 +44,10 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF \
             -DGGML_NATIVE=OFF \
             -DLLAMA_SERVER_SSL=OFF
-
           cmake --build build --config Release --target llama-server
-
           mkdir -p dist
           cp build/bin/llama-server dist/llama-server-macos-arm64
           chmod +x dist/llama-server-macos-arm64
-
       - uses: actions/upload-artifact@v4
         with:
           name: macos-arm64
@@ -78,9 +72,7 @@ jobs:
             artifacts/macos-x64/llama-server-macos-x64 \
             artifacts/macos-arm64/llama-server-macos-arm64 \
             -output dist/llama-server-macos-universal
-
           chmod +x dist/llama-server-macos-universal
-
       - uses: actions/upload-artifact@v4
         with:
           name: macos-universal
@@ -98,13 +90,10 @@ jobs:
         run: |
           cmake -B build \
             -DBUILD_SHARED_LIBS=OFF
-
           cmake --build build --config Release --target llama-server
-
           mkdir -p dist
           cp build/bin/llama-server dist/llama-server-linux-x64
           chmod +x dist/llama-server-linux-x64
-
       - uses: actions/upload-artifact@v4
         with:
           name: linux-x64
@@ -121,19 +110,39 @@ jobs:
       - name: Configure (static)
         run: |
           cmake -S . -B build -DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DLLAMA_OPENSSL=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
-
       - name: Build llama-server (Windows x64)
         run: |
           cmake --build build --config Release --target llama-server
-
       - name: Package
         run: |
           mkdir dist
           copy build\bin\Release\llama-server.exe dist\llama-server-windows-x64.exe
-
       - uses: actions/upload-artifact@v4
         with:
           name: windows-x64
+          path: dist/*
+
+# ============================================================
+# Windows x86 (32-bit)
+# ============================================================
+  windows-x86:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (static x86)
+        run: |
+          cmake -S . -B build -A Win32 -DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DLLAMA_OPENSSL=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+      - name: Build llama-server (Windows x86)
+        run: |
+          cmake --build build --config Release --target llama-server
+      - name: Package
+        run: |
+          mkdir dist
+          copy build\bin\Release\llama-server.exe dist\llama-server-windows-x86.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x86
           path: dist/*
 
 # ============================================================
@@ -144,6 +153,7 @@ jobs:
       - macos-universal
       - linux-x64
       - windows-x64
+      - windows-x86
     runs-on: ubuntu-latest
 
     steps:
